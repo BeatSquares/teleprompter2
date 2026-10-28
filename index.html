@@ -118,6 +118,13 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
 .status { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
 .status.ok { border-color: rgba(61,220,151,.5); }
 .status.err { border-color: rgba(255,59,48,.55); }
+.status.warn { border-color: rgba(255,194,71,.6); }
+.mic .lvl { width: 54px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.22); overflow: hidden; display: block; }
+.mic .lvl i { display: block; height: 100%; width: 100%; background: var(--ok); transform-origin: left center; transform: scaleX(0); }
+.mic svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.mic.dead { color: var(--tally); }
+.mic.dead .lvl i { background: var(--tally); }
+.warn { margin: 0; align-self: center; background: rgba(0,0,0,.72); color: var(--cue); border: 1px solid rgba(255,194,71,.55); border-radius: 12px; padding: 8px 12px; font: 600 15px/1.3 var(--f-ui); text-align: center; max-width: 100%; }
 .status a { color: var(--cue); font-weight: 600; }
 .bar { height: 8px; background: var(--raise); border-radius: 99px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--cue); transition: width .3s ease; }
@@ -216,7 +223,8 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
     <div class="row"><button class="btn" type="button" id="camerr-retry">Nochmal versuchen</button><button class="btn" type="button" id="camerr-back">Zurück</button></div>
   </div>
   <div class="hud" id="hud">
-    <div class="meta"><span class="pill"><span class="dot"></span><span id="timer">00:00</span></span><span class="pill" id="pos">1 / 1</span></div>
+    <p class="warn" id="warn" hidden></p>
+    <div class="meta"><span class="pill"><span class="dot"></span><span id="timer">00:00</span></span><span class="pill mic" id="mic" aria-label="Mikrofon-Pegel"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span class="lvl"><i id="lvl"></i></span></span><span class="pill" id="pos">1 / 1</span></div>
     <div class="ctls">
       <button class="ctl" type="button" id="close" aria-label="Zurück zum Skript"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <button class="ctl" type="button" id="prev" aria-label="Vorheriger Satz"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
@@ -416,9 +424,45 @@ $('#open-takes').addEventListener('click', async () => { await renderTakes(); op
 let stream = null, recorder = null, chunks = [], t0 = 0, cues = [], idx = 0, recording = false, startLine = 0, tick = 0;
 let rollY = 0, rollRun = false, rollPaused = false, rollLast = 0, rollRaf = 0;
 let wakeLock = null;
+let actx = null, analyser = null, meterBuf = null, meterRaf = 0, lastSound = 0, meterSince = 0, recPeak = -120;
+function ensureAudioCtx() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    if (!actx) actx = new AC();
+    if (actx.state === 'suspended') actx.resume().catch(() => {});
+  } catch {}
+}
+function setupMeter(st) {
+  analyser = null;
+  try {
+    if (actx && st.getAudioTracks().length) {
+      const src = actx.createMediaStreamSource(st); analyser = actx.createAnalyser(); analyser.fftSize = 1024; src.connect(analyser);
+      meterBuf = new Float32Array(analyser.fftSize);
+    }
+  } catch { analyser = null; }
+  lastSound = 0; meterSince = performance.now();
+  cancelAnimationFrame(meterRaf); meterRaf = requestAnimationFrame(meterStep);
+}
+function meterStep() {
+  if (!stream) return;
+  let db = -120;
+  if (analyser) { analyser.getFloatTimeDomainData(meterBuf); let q = 0; for (let i = 0; i < meterBuf.length; i++) q += meterBuf[i] * meterBuf[i]; db = 20 * Math.log10(Math.sqrt(q / meterBuf.length) + 1e-9); }
+  const now = performance.now();
+  if (db > -50) lastSound = now;
+  if (recording) recPeak = Math.max(recPeak, db);
+  $('#lvl').style.transform = 'scaleX(' + Math.max(0, Math.min(1, (db + 60) / 45)).toFixed(3) + ')';
+  const tr = stream.getAudioTracks()[0];
+  const dead = !tr || tr.readyState === 'ended' || tr.muted || (analyser && now - meterSince > 5000 && now - lastSound > 5000);
+  $('#mic').classList.toggle('dead', !!dead);
+  const land = innerWidth > innerHeight;
+  const msg = land ? 'Bitte Handy hochkant halten. Das Reel ist 9:16.' : dead ? 'Kein Ton vom Mikrofon. Sag einen Satz zur Probe. Bleibt der Balken rot, nutzt vermutlich eine andere App das Mikrofon.' : '';
+  const w = $('#warn'); if (w.textContent !== msg) w.textContent = msg; w.hidden = !msg;
+  meterRaf = requestAnimationFrame(meterStep);
+}
 
 async function openStudio() {
   if (!lines().length) return;
+  ensureAudioCtx();
   idx = 0; show('studio');
   $('#band').classList.toggle('mirror', S.mirror);
   $('#lineview').hidden = S.mode !== 'line'; $('#rollview').hidden = S.mode !== 'roll';
@@ -438,10 +482,11 @@ async function startCamera() {
     });
     const v = $('#preview'); v.srcObject = stream; v.classList.toggle('mirror', S.facing === 'user');
     try { await v.play(); } catch {}
+    setupMeter(stream);
     return true;
   } catch (e) { camError(e && e.name); return false; }
 }
-function stopCamera() { if (stream) { for (const t of stream.getTracks()) t.stop(); stream = null; } $('#preview').srcObject = null; }
+function stopCamera() { cancelAnimationFrame(meterRaf); if (stream) { for (const t of stream.getTracks()) t.stop(); stream = null; } $('#preview').srcObject = null; }
 function camError(name) {
   const msg = {
     insecure: 'Die Kamera geht nur über eine sichere Adresse (https). Öffne die App über den Link, den du bekommen hast.',
@@ -538,6 +583,7 @@ let busy = false;
 $('#rec').addEventListener('click', async () => {
   if (busy) return;
   if (recording) { stopRec(); return; }
+  ensureAudioCtx();
   if (!stream && !(await startCamera())) return;
   const mime = pickMime();
   if (mime === null) { toast('Dieser Browser kann nicht aufnehmen. Nimm Safari (iPhone) oder Chrome.', 4000); return; }
@@ -547,7 +593,7 @@ $('#rec').addEventListener('click', async () => {
   startRec(mime);
 });
 function startRec(mime) {
-  chunks = []; cues = []; startLine = idx;
+  chunks = []; cues = []; startLine = idx; recPeak = -120;
   const opts = { videoBitsPerSecond: CONFIG.videoBps, audioBitsPerSecond: CONFIG.audioBps };
   if (mime) opts.mimeType = mime;
   try { recorder = new MediaRecorder(stream, opts); }
@@ -577,7 +623,8 @@ async function finishRec() {
   const take = {
     id: 't' + created, created, project: S.title, mime, ext: extFor(mime), size: blob.size, dur: +recorder._dur.toFixed(2),
     name: `${slug(S.title)}_${stamp(new Date(created))}_take${n}`, blob,
-    lines: lines(), startLine, cues: cues.slice(), mode: S.mode, saved: false, link: ''
+    lines: lines(), startLine, cues: cues.slice(), mode: S.mode, saved: false, link: '',
+    peakDb: analyser ? +recPeak.toFixed(1) : null
   };
   await DB.put(take);
   $('#timer').textContent = '00:00';
@@ -599,6 +646,12 @@ function renderReviewState(msg, kind, progress) {
   chip.textContent = t.saved ? 'In Drive gespeichert' : 'Auf diesem Gerät'; chip.className = 'chip ' + (t.saved ? 'ok' : 'warn');
   const st = $('#r-status');
   if (!msg && t.saved) { msg = 'Gespeichert im Ordner »Reel Machine Aufnahmen«.'; kind = 'ok'; }
+  if (!msg && !t.saved) {
+    const w = [];
+    if (t.peakDb != null && t.peakDb < -45) w.push(`Auf dieser Aufnahme ist kaum Ton (lauteste Stelle ${Math.round(t.peakDb)} dB). Prüf das Mikrofon und nimm neu auf.`);
+    if (t.landscape) w.push('Die Aufnahme ist im Querformat. Für das Reel bitte hochkant aufnehmen.');
+    if (w.length) { msg = w.join(' '); kind = 'warn'; }
+  }
   st.hidden = !msg; st.className = 'status' + (kind ? ' ' + kind : '');
   if (msg) {
     $('#r-msg').textContent = msg;
@@ -608,8 +661,9 @@ function renderReviewState(msg, kind, progress) {
   const up = $('#r-upload'); up.disabled = !!t.saved || uploading; up.hidden = !!t.saved;
 }
 $('#r-upload').addEventListener('click', () => uploadTake(current, renderReviewState));
+$('#player').addEventListener('loadedmetadata', () => { const v = $('#player'); if (current && v.videoWidth && v.videoHeight) { const l = v.videoWidth > v.videoHeight; if (l !== !!current.landscape) { current.landscape = l; if (!uploading) renderReviewState(); } } });
 $('#r-share').addEventListener('click', () => shareTake(current));
-$('#r-again').addEventListener('click', async () => { show('studio'); idx = 0; buildRoll(); renderLine(); setRecUI(); await startCamera(); });
+$('#r-again').addEventListener('click', async () => { ensureAudioCtx(); show('studio'); idx = 0; buildRoll(); renderLine(); setRecUI(); await startCamera(); });
 $('#r-done').addEventListener('click', () => { stopCamera(); show('setup'); renderSetup(); });
 
 async function shareTake(t) {
