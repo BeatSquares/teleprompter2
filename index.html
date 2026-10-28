@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0E1013">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="robots" content="noindex">
+<title>BTSQ Teleprompter</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230E1013'/%3E%3Ccircle cx='16' cy='16' r='7' fill='%23FF3B30'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column tool on the setup screen; full-bleed camera with the prompter band at the top edge, next to the lens. */
+:root {
+  --ink: #0E1013;
+  --panel: #171A1F;
+  --raise: #21252C;
+  --line: #2E333C;
+  --text: #F3F1EC;
+  --dim: #A0A6AF;
+  --tally: #FF3B30;
+  --cue: #FFC247;
+  --ok: #3DDC97;
+  --f-ui: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-cond: "Barlow Semi Condensed", "Barlow", system-ui, sans-serif;
+  --f-read: "Atkinson Hyperlegible", "Barlow", system-ui, sans-serif;
+  --fs: 34px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--ink); color: var(--text); font: 16px/1.45 var(--f-ui); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+button, input, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cue); outline-offset: 2px; }
+
+/* ---------- setup ---------- */
+#setup { min-height: 100%; padding-top: calc(var(--safe-t) + 20px); padding-bottom: calc(var(--safe-b) + 110px); padding-left: max(16px, var(--safe-l)); padding-right: max(16px, var(--safe-r)); }
+.wrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.tallydot { width: 14px; height: 14px; border-radius: 50%; background: var(--tally); box-shadow: 0 0 0 4px rgba(255,59,48,.18); flex: none; }
+.brand h1 { margin: 0; font: 700 28px/1.05 var(--f-cond); letter-spacing: .01em; }
+.brand p { margin: 2px 0 0; color: var(--dim); font: 500 13px/1.2 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.label { font: 600 13px/1 var(--f-cond); letter-spacing: .09em; text-transform: uppercase; color: var(--dim); display: flex; justify-content: space-between; gap: 12px; }
+.label span:last-child { text-transform: none; letter-spacing: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+input[type=text], input[type=url], input[type=password], textarea { width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; outline: none; }
+input:focus, textarea:focus { border-color: var(--cue); }
+textarea#script { min-height: 260px; resize: vertical; font: 17px/1.55 var(--f-read); }
+.hint { margin: 0; color: var(--dim); font-size: 14px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 5px; }
+.seg button { border: 0; background: transparent; border-radius: 10px; padding: 10px 8px; text-align: left; display: flex; flex-direction: column; gap: 2px; }
+.seg b { font: 700 16px/1.1 var(--f-cond); }
+.seg small { color: var(--dim); font-size: 12.5px; line-height: 1.25; }
+.seg button[aria-pressed=true] { background: var(--raise); box-shadow: inset 0 0 0 1px var(--cue); }
+.seg button[aria-pressed=true] b { color: var(--cue); }
+input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
+.toggle { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.toggle input { width: 22px; height: 22px; accent-color: var(--cue); flex: none; }
+.tips { margin: 0; padding: 14px 16px 14px 34px; background: var(--panel); border-radius: 12px; color: var(--dim); font-size: 14.5px; display: flex; flex-direction: column; gap: 6px; }
+.tips li::marker { color: var(--cue); }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { border: 1px solid var(--line); background: var(--raise); border-radius: 12px; padding: 11px 14px; font: 600 15px/1.1 var(--f-ui); display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn.primary { background: var(--cue); color: #17130A; border-color: var(--cue); font-weight: 700; }
+.btn.danger { color: #FF8A80; }
+.btn .badge { background: var(--ink); color: var(--text); border-radius: 999px; padding: 1px 7px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.btn svg, .ctl svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.dock { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px max(16px, var(--safe-r)) calc(12px + var(--safe-b)) max(16px, var(--safe-l)); background: linear-gradient(to top, var(--ink) 70%, rgba(14,16,19,0)); z-index: 5; }
+.dock .btn { width: 100%; max-width: 560px; margin: 0 auto; display: flex; min-height: 54px; font-size: 17px; }
+
+/* ---------- studio ---------- */
+#studio { position: fixed; inset: 0; background: #000; overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+#preview { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+#preview.mirror { transform: scaleX(-1); }
+.band { position: absolute; left: 0; right: 0; top: 0; height: 44%; padding: calc(var(--safe-t) + 18px) max(20px, var(--safe-r)) 30px max(20px, var(--safe-l)); background: linear-gradient(to bottom, rgba(0,0,0,.86) 0%, rgba(0,0,0,.78) 62%, rgba(0,0,0,0) 100%); overflow: hidden; cursor: pointer; }
+.band.mirror .flip-me { transform: scaleX(-1); }
+.cur { margin: 0; font: 700 var(--fs)/1.22 var(--f-read); color: #fff; text-wrap: balance; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+.next { margin: .7em 0 0; font: 400 calc(var(--fs) * .6)/1.3 var(--f-read); color: rgba(255,255,255,.5); text-wrap: balance; }
+.endhint { margin: .8em 0 0; font: 600 15px/1.2 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; color: var(--cue); }
+.roll { position: absolute; left: max(20px, var(--safe-l)); right: max(20px, var(--safe-r)); top: calc(var(--safe-t) + 18px); will-change: transform; }
+.roll p { margin: 0 0 .55em; font: 700 var(--fs)/1.25 var(--f-read); color: rgba(255,255,255,.55); }
+.roll p.on { color: #fff; }
+.readline { position: absolute; left: 0; width: 6px; height: calc(var(--fs) * 1.25); top: calc(var(--safe-t) + 18px); background: var(--cue); border-radius: 0 3px 3px 0; }
+.paused { position: absolute; right: max(16px, var(--safe-r)); top: calc(var(--safe-t) + 12px); font: 600 13px/1 var(--f-cond); letter-spacing: .1em; text-transform: uppercase; color: var(--cue); }
+.hud { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px max(16px, var(--safe-r)) calc(18px + var(--safe-b)) max(16px, var(--safe-l)); background: linear-gradient(to top, rgba(0,0,0,.72), rgba(0,0,0,0)); display: flex; flex-direction: column; gap: 14px; }
+.meta { display: flex; justify-content: space-between; align-items: center; font: 600 15px/1 var(--f-cond); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.pill { background: rgba(0,0,0,.55); border-radius: 999px; padding: 7px 12px; display: inline-flex; align-items: center; gap: 8px; }
+.pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+.recording .pill .dot { background: var(--tally); animation: blink 1s steps(2, start) infinite; }
+@keyframes blink { to { visibility: hidden; } }
+.ctls { display: grid; grid-template-columns: 1fr 1fr auto 1fr 1fr; align-items: center; justify-items: center; gap: 6px; }
+.ctl { width: 54px; height: 54px; border-radius: 50%; border: 0; background: rgba(255,255,255,.14); color: #fff; display: grid; place-items: center; }
+.ctl svg { width: 24px; height: 24px; }
+.ctl:disabled { opacity: .35; }
+.rec { width: 78px; height: 78px; border-radius: 50%; border: 4px solid #fff; background: transparent; display: grid; place-items: center; padding: 0; }
+.rec i { display: block; width: 58px; height: 58px; border-radius: 50%; background: var(--tally); transition: all .18s ease; }
+.recording .rec i { width: 30px; height: 30px; border-radius: 7px; }
+.count { position: absolute; inset: 0; display: grid; place-items: center; font: 700 160px/1 var(--f-cond); color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.6); pointer-events: none; }
+.camerr { position: absolute; left: max(20px, var(--safe-l)); right: max(20px, var(--safe-r)); top: 50%; transform: translateY(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.camerr p { margin: 0; }
+
+/* ---------- review ---------- */
+#review { min-height: 100%; padding: calc(var(--safe-t) + 16px) max(16px, var(--safe-r)) calc(var(--safe-b) + 24px) max(16px, var(--safe-l)); }
+#review .wrap { gap: 16px; }
+.player { width: 100%; max-height: 58vh; aspect-ratio: 9 / 16; background: #000; border-radius: 14px; object-fit: contain; max-width: 100%; }
+.takeinfo { display: flex; flex-wrap: wrap; gap: 6px 14px; color: var(--dim); font: 500 14px/1.3 var(--f-cond); letter-spacing: .03em; font-variant-numeric: tabular-nums; }
+.takeinfo b { color: var(--text); font-weight: 600; word-break: break-all; }
+.status { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+.status.ok { border-color: rgba(61,220,151,.5); }
+.status.err { border-color: rgba(255,59,48,.55); }
+.status a { color: var(--cue); font-weight: 600; }
+.bar { height: 8px; background: var(--raise); border-radius: 99px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--cue); transition: width .3s ease; }
+.chip { white-space: nowrap; flex: none; display: inline-flex; align-items: center; gap: 6px; font: 600 12.5px/1 var(--f-cond); letter-spacing: .06em; text-transform: uppercase; padding: 5px 9px; border-radius: 999px; background: var(--raise); color: var(--dim); }
+.chip.ok { color: var(--ok); }
+.chip.warn { color: var(--cue); }
+
+/* ---------- sheets ---------- */
+.sheet { position: fixed; inset: 0; z-index: 20; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; }
+.sheet > div { width: 100%; max-width: 600px; max-height: 88%; overflow: auto; background: var(--panel); border-radius: 18px 18px 0 0; padding: 18px max(16px, var(--safe-r)) calc(20px + var(--safe-b)) max(16px, var(--safe-l)); display: flex; flex-direction: column; gap: 14px; }
+.sheet h2 { margin: 0; font: 700 22px/1.1 var(--f-cond); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.take { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.take .t1 { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.take .nm { font-weight: 600; word-break: break-all; min-width: 0; }
+.take .sub { color: var(--dim); font: 500 13.5px/1.3 var(--f-cond); font-variant-numeric: tabular-nums; }
+.empty { color: var(--dim); margin: 0; }
+.toast { position: fixed; left: 50%; bottom: calc(96px + var(--safe-b)); transform: translateX(-50%); background: var(--text); color: var(--ink); padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14.5px; z-index: 30; max-width: calc(100% - 32px); text-align: center; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ============ SETUP ============ -->
+<section id="setup">
+  <div class="wrap">
+    <header class="brand">
+      <span class="tallydot" aria-hidden="true"></span>
+      <div><h1>Teleprompter</h1><p>BeatSquares Reel Machine</p></div>
+    </header>
+
+    <div class="field">
+      <label class="label" for="title"><span>Projekt</span></label>
+      <input id="title" type="text" placeholder="z. B. CISPA THEMIS" autocomplete="off">
+    </div>
+
+    <div class="field">
+      <label class="label" for="script"><span>Skript</span><span id="stats">0 Sätze</span></label>
+      <textarea id="script" spellcheck="false" placeholder="Eine Zeile pro Satz.&#10;Jede Zeile erscheint einzeln auf dem Prompter."></textarea>
+      <p class="hint">Eine Zeile pro Satz. Leere Zeilen werden übersprungen.</p>
+    </div>
+
+    <div class="field">
+      <span class="label"><span>Modus</span></span>
+      <div class="seg" role="group" aria-label="Modus">
+        <button type="button" id="m-line" aria-pressed="true"><b>Satz für Satz</b><small>Du tippst weiter. Ideal für Reels.</small></button>
+        <button type="button" id="m-roll" aria-pressed="false"><b>Laufschrift</b><small>Der Text läuft von selbst.</small></button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="label" for="fs"><span>Schriftgröße</span><span id="fs-v">34 px</span></label>
+      <input id="fs" type="range" min="22" max="60" step="1" value="34">
+    </div>
+
+    <div class="field" id="speed-f" hidden>
+      <label class="label" for="speed"><span>Tempo Laufschrift</span><span id="speed-v">45</span></label>
+      <input id="speed" type="range" min="15" max="120" step="1" value="45">
+    </div>
+
+    <label class="toggle" for="mirror"><span>Text spiegeln<br><span class="hint">Nur für Teleprompter mit Glasscheibe</span></span><input id="mirror" type="checkbox"></label>
+
+    <ul class="tips">
+      <li>Handy hochkant, Kamera auf Augenhöhe, Gesicht zum Fenster.</li>
+      <li>Nach jedem Satz kurz absetzen. Verpatzt? Satz einfach noch einmal sagen, die letzte Fassung zählt.</li>
+      <li>Bluetooth-Fernauslöser und Pfeiltasten schalten zum nächsten Satz.</li>
+    </ul>
+
+    <div class="row">
+      <button class="btn" type="button" id="open-takes"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M17 10l4-2v8l-4-2"/></svg>Aufnahmen <span class="badge" id="takes-n">0</span></button>
+      <button class="btn" type="button" id="copy-link"><svg viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>Link mit Skript</button>
+      <button class="btn" type="button" id="open-settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Drive-Upload</button>
+    </div>
+    <p class="hint" id="upload-state"></p>
+  </div>
+  <div class="dock"><button class="btn primary" type="button" id="go">Kamera öffnen</button></div>
+</section>
+
+<!-- ============ STUDIO ============ -->
+<section id="studio" hidden>
+  <video id="preview" class="mirror" playsinline muted autoplay></video>
+  <div class="band" id="band" aria-live="polite">
+    <div class="flip-me" id="lineview">
+      <p class="cur" id="cur"></p>
+      <p class="next" id="next"></p>
+      <p class="endhint" id="endhint" hidden>Letzter Satz. Danach Stopp drücken.</p>
+    </div>
+    <div class="flip-me" id="rollview" hidden>
+      <div class="roll" id="roll"></div>
+      <span class="readline" aria-hidden="true"></span>
+      <span class="paused" id="paused" hidden>Pause, tippen zum Weiterlaufen</span>
+    </div>
+  </div>
+  <div class="count" id="count" hidden></div>
+  <div class="camerr" id="camerr" hidden>
+    <p id="camerr-t"></p>
+    <div class="row"><button class="btn" type="button" id="camerr-retry">Nochmal versuchen</button><button class="btn" type="button" id="camerr-back">Zurück</button></div>
+  </div>
+  <div class="hud" id="hud">
+    <div class="meta"><span class="pill"><span class="dot"></span><span id="timer">00:00</span></span><span class="pill" id="pos">1 / 1</span></div>
+    <div class="ctls">
+      <button class="ctl" type="button" id="close" aria-label="Zurück zum Skript"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="ctl" type="button" id="prev" aria-label="Vorheriger Satz"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <button class="rec" type="button" id="rec" aria-label="Aufnahme starten"><i></i></button>
+      <button class="ctl" type="button" id="nextbtn" aria-label="Nächster Satz"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      <button class="ctl" type="button" id="flip" aria-label="Kamera wechseln"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><path d="M9 13a3 3 0 0 0 5.2 2M15 12a3 3 0 0 0-5.2-2"/><path d="M14 15.5h.5v-.5M9.5 9.5H9v.5"/></svg></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REVIEW ============ -->
+<section id="review" hidden>
+  <div class="wrap">
+    <video id="player" class="player" playsinline controls></video>
+    <div class="takeinfo"><b id="r-name"></b><span id="r-dur"></span><span id="r-size"></span><span class="chip" id="r-chip">Auf diesem Gerät</span></div>
+    <div class="status" id="r-status" hidden>
+      <span id="r-msg"></span>
+      <div class="bar" id="r-bar" hidden><i></i></div>
+    </div>
+    <button class="btn primary" type="button" id="r-upload"><svg viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>In Google Drive speichern</button>
+    <div class="row">
+      <button class="btn" type="button" id="r-share">Teilen oder sichern</button>
+      <button class="btn" type="button" id="r-again">Neue Aufnahme</button>
+      <button class="btn" type="button" id="r-done">Zum Skript</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SHEETS ============ -->
+<div class="sheet" id="takes" hidden>
+  <div role="dialog" aria-modal="true" aria-labelledby="takes-h">
+    <h2 id="takes-h">Aufnahmen <button class="btn" type="button" data-close>Schließen</button></h2>
+    <p class="hint">Aufnahmen bleiben auf diesem Gerät, bis du sie löschst. So geht nichts verloren, auch wenn der Upload abbricht.</p>
+    <div id="takes-list" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</div>
+
+<div class="sheet" id="settings" hidden>
+  <div role="dialog" aria-modal="true" aria-labelledby="set-h">
+    <h2 id="set-h">Drive-Upload <button class="btn" type="button" data-close>Schließen</button></h2>
+    <p class="hint">Aufnahmen landen im Ordner »Reel Machine Aufnahmen« im BeatSquares-Drive. Ein Google-Login ist dafür nicht nötig. Adresse und Schlüssel kommen normalerweise über den Einladungslink.</p>
+    <div class="field"><label class="label" for="endpoint"><span>Upload-Adresse</span></label><input id="endpoint" type="url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off"></div>
+    <div class="field"><label class="label" for="key"><span>Upload-Schlüssel</span></label><input id="key" type="password" autocomplete="off"></div>
+    <div class="row"><button class="btn" type="button" id="test">Verbindung testen</button></div>
+    <p class="hint" id="test-r" aria-live="polite"></p>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+'use strict';
+/* Fixed by whoever hosts the app: the Apps Script web app URL (Deploy > Web app > /exec). The key never goes in here; it comes with the invitation link (#k=…). */
+const CONFIG = {
+  endpoint: '',
+  app: 'BTSQ Teleprompter',
+  version: '1.0',
+  chunk: 4 * 1024 * 1024,      // multiple of 256 KiB, as Drive's resumable upload requires
+  videoBps: 4000000,
+  audioBps: 128000,
+  wordsPerSec: 2.5
+};
+
+const $ = (s) => document.querySelector(s);
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('tp.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('tp.' + k, JSON.stringify(v)); } catch {} }
+};
+const S = {
+  title: store.get('title', ''),
+  text: store.get('text', ''),
+  mode: store.get('mode', 'line'),
+  fs: store.get('fs', 34),
+  speed: store.get('speed', 45),
+  mirror: store.get('mirror', false),
+  endpoint: store.get('endpoint', '') || CONFIG.endpoint,
+  key: store.get('key', ''),
+  facing: 'user'
+};
+function save(...ks) { for (const k of ks) store.set(k, S[k]); }
+
+/* ---------- utils ---------- */
+function toast(msg, ms = 2600) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => { t.hidden = true; }, ms); }
+function show(id) { for (const s of ['setup', 'studio', 'review']) $('#' + s).hidden = s !== id; window.scrollTo(0, 0); }
+function lines() { return S.text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean); }
+function fmtTime(sec) { sec = Math.max(0, Math.round(sec)); return String(Math.floor(sec / 60)).padStart(2, '0') + ':' + String(sec % 60).padStart(2, '0'); }
+function fmtSize(b) { return b > 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+function slug(s) { return (s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/ß/g, 'ss').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'aufnahme'; }
+function stamp(d = new Date()) { const p = (n) => String(n).padStart(2, '0'); return d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '-' + p(d.getHours()) + p(d.getMinutes()); }
+function b64url(str) { const by = new TextEncoder().encode(str); let bin = ''; for (let i = 0; i < by.length; i++) bin += String.fromCharCode(by[i]); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+function unb64url(s) { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const bin = atob(s); const by = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) by[i] = bin.charCodeAt(i); return new TextDecoder().decode(by); }
+function blobB64(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = () => rej(r.error); r.readAsDataURL(blob); }); }
+function extFor(mime) { return /mp4/.test(mime) ? 'mp4' : /quicktime/.test(mime) ? 'mov' : 'webm'; }
+
+/* ---------- link import: #s=<script>&k=<key>&e=<endpoint> ---------- */
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('s')) {
+    try { const o = JSON.parse(unb64url(h.get('s'))); if (o.t) S.title = String(o.t); if (Array.isArray(o.l)) S.text = o.l.map(String).join('\n'); save('title', 'text'); }
+    catch { toast('Das Skript im Link ließ sich nicht lesen.'); }
+  }
+  if (h.get('e')) { try { S.endpoint = unb64url(h.get('e')); save('endpoint'); } catch {} }
+  if (h.get('k')) { S.key = h.get('k'); save('key'); h.delete('k'); h.delete('e'); const rest = h.toString(); history.replaceState(null, '', location.pathname + location.search + (rest ? '#' + rest : '')); }
+}
+
+/* ---------- local take storage (IndexedDB, memory fallback) ---------- */
+const DB = {
+  p: null, mem: new Map(),
+  open() {
+    if (!this.p) this.p = new Promise((res) => {
+      try {
+        const r = indexedDB.open('btsq-teleprompter', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('takes', { keyPath: 'id' });
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(null);
+      } catch { res(null); }
+    });
+    return this.p;
+  },
+  async run(mode, fn) {
+    const db = await this.open();
+    if (!db) return null;
+    return new Promise((res, rej) => { const t = db.transaction('takes', mode); const q = fn(t.objectStore('takes')); t.oncomplete = () => res(q ? q.result : null); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); });
+  },
+  async put(v) { this.mem.set(v.id, v); try { await this.run('readwrite', (s) => s.put(v)); } catch (e) { console.warn('IndexedDB put failed', e); } },
+  async del(id) { this.mem.delete(id); try { await this.run('readwrite', (s) => s.delete(id)); } catch {} },
+  async all() {
+    let rows = null; try { rows = await this.run('readonly', (s) => s.getAll()); } catch {}
+    const map = new Map((rows || []).map((r) => [r.id, r])); for (const [k, v] of this.mem) if (!map.has(k)) map.set(k, v);
+    return [...map.values()].sort((a, b) => b.created - a.created);
+  }
+};
+
+/* ---------- setup screen ---------- */
+function renderSetup() {
+  $('#title').value = S.title; $('#script').value = S.text;
+  $('#fs').value = S.fs; $('#speed').value = S.speed; $('#mirror').checked = S.mirror;
+  renderMode(); renderStats(); renderUploadState(); refreshTakeCount();
+}
+function renderMode() {
+  $('#m-line').setAttribute('aria-pressed', String(S.mode === 'line'));
+  $('#m-roll').setAttribute('aria-pressed', String(S.mode === 'roll'));
+  $('#speed-f').hidden = S.mode !== 'roll';
+  $('#fs-v').textContent = S.fs + ' px'; $('#speed-v').textContent = S.speed;
+  document.documentElement.style.setProperty('--fs', S.fs + 'px');
+}
+function renderStats() {
+  const L = lines(); const words = L.join(' ').split(/\s+/).filter(Boolean).length;
+  $('#stats').textContent = L.length ? `${L.length} ${L.length === 1 ? 'Satz' : 'Sätze'} · ca. ${Math.round(words / CONFIG.wordsPerSec + L.length * 0.5)} s` : '0 Sätze';
+  $('#go').disabled = !L.length;
+}
+function renderUploadState() {
+  $('#upload-state').textContent = S.endpoint && S.key ? 'Drive-Upload ist eingerichtet.' : 'Drive-Upload ist noch nicht eingerichtet. Aufnahmen bleiben bis dahin auf diesem Gerät.';
+}
+async function refreshTakeCount() { const all = await DB.all(); $('#takes-n').textContent = all.length; }
+
+$('#title').addEventListener('input', (e) => { S.title = e.target.value; save('title'); });
+$('#script').addEventListener('input', (e) => { S.text = e.target.value; save('text'); renderStats(); });
+$('#m-line').addEventListener('click', () => { S.mode = 'line'; save('mode'); renderMode(); });
+$('#m-roll').addEventListener('click', () => { S.mode = 'roll'; save('mode'); renderMode(); });
+$('#fs').addEventListener('input', (e) => { S.fs = +e.target.value; save('fs'); renderMode(); });
+$('#speed').addEventListener('input', (e) => { S.speed = +e.target.value; save('speed'); renderMode(); });
+$('#mirror').addEventListener('change', (e) => { S.mirror = e.target.checked; save('mirror'); });
+$('#go').addEventListener('click', openStudio);
+$('#copy-link').addEventListener('click', async () => {
+  const L = lines(); if (!L.length) { toast('Erst ein Skript eintragen.'); return; }
+  const h = new URLSearchParams(); h.set('s', b64url(JSON.stringify({ t: S.title, l: L })));
+  if (S.key) h.set('k', S.key);
+  if (S.endpoint && S.endpoint !== CONFIG.endpoint) h.set('e', b64url(S.endpoint));
+  const url = location.origin + location.pathname + '#' + h.toString();
+  try { await navigator.clipboard.writeText(url); toast(S.key ? 'Link mit Skript und Upload-Schlüssel kopiert.' : 'Link mit Skript kopiert.'); }
+  catch { window.prompt('Link kopieren:', url); }
+});
+
+/* ---------- sheets ---------- */
+function openSheet(id) { $('#' + id).hidden = false; }
+for (const sh of document.querySelectorAll('.sheet')) {
+  sh.addEventListener('click', (e) => { if (e.target === sh || e.target.closest('[data-close]')) { sh.hidden = true; renderUploadState(); refreshTakeCount(); } });
+}
+$('#open-settings').addEventListener('click', () => { $('#endpoint').value = S.endpoint; $('#key').value = S.key; $('#test-r').textContent = ''; openSheet('settings'); });
+$('#endpoint').addEventListener('input', (e) => { S.endpoint = e.target.value.trim(); save('endpoint'); });
+$('#key').addEventListener('input', (e) => { S.key = e.target.value.trim(); save('key'); });
+$('#test').addEventListener('click', async () => {
+  const out = $('#test-r');
+  if (!S.endpoint || !S.key) { out.textContent = 'Bitte Upload-Adresse und Schlüssel eintragen.'; return; }
+  out.textContent = 'Teste …';
+  try {
+    const r = await fetch(S.endpoint + (S.endpoint.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(S.key));
+    const j = await r.json();
+    out.textContent = j.ok ? `Verbunden. Ziel: Ordner »${j.folder}«.` : (j.error === 'key' ? 'Der Schlüssel stimmt nicht.' : 'Fehler: ' + j.error);
+  } catch { out.textContent = 'Keine Antwort von der Upload-Adresse. Prüfe die Adresse und die Internetverbindung.'; }
+});
+$('#open-takes').addEventListener('click', async () => { await renderTakes(); openSheet('takes'); });
+
+/* ---------- studio ---------- */
+let stream = null, recorder = null, chunks = [], t0 = 0, cues = [], idx = 0, recording = false, startLine = 0, tick = 0;
+let rollY = 0, rollRun = false, rollPaused = false, rollLast = 0, rollRaf = 0;
+let wakeLock = null;
+
+async function openStudio() {
+  if (!lines().length) return;
+  idx = 0; show('studio');
+  $('#band').classList.toggle('mirror', S.mirror);
+  $('#lineview').hidden = S.mode !== 'line'; $('#rollview').hidden = S.mode !== 'roll';
+  $('#prev').hidden = false; $('#nextbtn').hidden = false;
+  buildRoll(); renderLine(); setRecUI();
+  await startCamera();
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {}
+}
+async function startCamera() {
+  $('#camerr').hidden = true;
+  if (stream) return true;
+  if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) { camError('insecure'); return false; }
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: S.facing, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+    const v = $('#preview'); v.srcObject = stream; v.classList.toggle('mirror', S.facing === 'user');
+    try { await v.play(); } catch {}
+    return true;
+  } catch (e) { camError(e && e.name); return false; }
+}
+function stopCamera() { if (stream) { for (const t of stream.getTracks()) t.stop(); stream = null; } $('#preview').srcObject = null; }
+function camError(name) {
+  const msg = {
+    insecure: 'Die Kamera geht nur über eine sichere Adresse (https). Öffne die App über den Link, den du bekommen hast.',
+    NotAllowedError: 'Kamera oder Mikrofon sind gesperrt. Erlaube beides in den Browser-Einstellungen für diese Seite und versuch es noch einmal.',
+    NotFoundError: 'Keine Kamera oder kein Mikrofon gefunden.',
+    NotReadableError: 'Eine andere App benutzt gerade die Kamera. Schließ sie und versuch es noch einmal.',
+    OverconstrainedError: 'Diese Kamera passt nicht. Wechsle die Kamera und versuch es noch einmal.'
+  }[name] || 'Die Kamera ließ sich nicht starten. Lade die Seite neu und versuch es noch einmal.';
+  $('#camerr-t').textContent = msg; $('#camerr').hidden = false;
+}
+$('#camerr-retry').addEventListener('click', startCamera);
+$('#camerr-back').addEventListener('click', closeStudio);
+
+function closeStudio() {
+  if (recording) return;
+  stopRoll(); stopCamera();
+  try { wakeLock?.release(); } catch {} wakeLock = null;
+  show('setup'); renderSetup();
+}
+$('#close').addEventListener('click', closeStudio);
+$('#flip').addEventListener('click', async () => {
+  if (recording) return;
+  S.facing = S.facing === 'user' ? 'environment' : 'user'; stopCamera(); await startCamera();
+});
+
+function renderLine() {
+  const L = lines(); idx = Math.max(0, Math.min(L.length - 1, idx));
+  $('#cur').textContent = L[idx] || '';
+  $('#next').textContent = L[idx + 1] || '';
+  $('#pos').textContent = `${idx + 1} / ${L.length}`;
+  $('#endhint').hidden = !(recording && idx === L.length - 1);
+  $('#prev').disabled = idx === 0; $('#nextbtn').disabled = idx >= L.length - 1;
+}
+function cue() { if (recording) cues.push({ line: idx, t: +((performance.now() - t0) / 1000).toFixed(2) }); }
+function go(d) {
+  if (S.mode === 'roll') { rollJump(d); return; }
+  const n = Math.max(0, Math.min(lines().length - 1, idx + d));
+  if (n === idx) return; idx = n; cue(); renderLine();
+}
+$('#prev').addEventListener('click', () => go(-1));
+$('#nextbtn').addEventListener('click', () => go(1));
+$('#band').addEventListener('click', () => { if (S.mode === 'line') go(1); else if (rollRun) { rollPaused = !rollPaused; $('#paused').hidden = !rollPaused; } });
+document.addEventListener('keydown', (e) => {
+  if ($('#studio').hidden) return;
+  if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); go(1); }
+  else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(e.key)) { e.preventDefault(); go(-1); }
+  else if (e.key === 'Escape') closeStudio();
+});
+
+/* Laufschrift */
+function buildRoll() {
+  const r = $('#roll'); r.textContent = '';
+  for (const t of lines()) { const p = document.createElement('p'); p.textContent = t; r.append(p); }
+  rollY = 0; if (S.mode === 'roll') applyRoll();
+}
+function applyRoll() {
+  if (S.mode !== 'roll') return;
+  $('#roll').style.transform = `translateY(${-rollY}px)`;
+  const ps = $('#roll').children; let cur = 0;
+  for (let i = 0; i < ps.length; i++) if (ps[i].offsetTop <= rollY + 4) cur = i;
+  for (let i = 0; i < ps.length; i++) ps[i].classList.toggle('on', i === cur);
+  if (cur !== idx) { idx = cur; cue(); }
+  $('#pos').textContent = `${idx + 1} / ${ps.length}`;
+}
+function rollJump(d) {
+  const ps = $('#roll').children; const n = Math.max(0, Math.min(ps.length - 1, idx + d));
+  rollY = ps[n] ? ps[n].offsetTop : 0; applyRoll();
+}
+function startRoll() {
+  rollRun = true; rollPaused = false; rollLast = performance.now(); $('#paused').hidden = true;
+  const step = (now) => {
+    if (!rollRun) return;
+    const dt = (now - rollLast) / 1000; rollLast = now;
+    if (!rollPaused) { const max = $('#roll').scrollHeight; rollY = Math.min(max, rollY + S.speed * dt); applyRoll(); }
+    rollRaf = requestAnimationFrame(step);
+  };
+  rollRaf = requestAnimationFrame(step);
+}
+function stopRoll() { rollRun = false; cancelAnimationFrame(rollRaf); $('#paused').hidden = true; }
+
+/* Aufnahme */
+function pickMime() {
+  if (!window.MediaRecorder) return null;
+  const c = ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+  for (const m of c) { try { if (MediaRecorder.isTypeSupported(m)) return m; } catch {} }
+  return '';
+}
+function setRecUI() {
+  $('#studio').classList.toggle('recording', recording);
+  $('#rec').setAttribute('aria-label', recording ? 'Aufnahme stoppen' : 'Aufnahme starten');
+  $('#close').disabled = recording; $('#flip').disabled = recording;
+}
+let busy = false;
+$('#rec').addEventListener('click', async () => {
+  if (busy) return;
+  if (recording) { stopRec(); return; }
+  if (!stream && !(await startCamera())) return;
+  const mime = pickMime();
+  if (mime === null) { toast('Dieser Browser kann nicht aufnehmen. Nimm Safari (iPhone) oder Chrome.', 4000); return; }
+  busy = true; $('#count').hidden = false;
+  for (let i = 3; i > 0; i--) { $('#count').textContent = i; await sleep(750); }
+  $('#count').hidden = true; busy = false;
+  startRec(mime);
+});
+function startRec(mime) {
+  chunks = []; cues = []; startLine = idx;
+  const opts = { videoBitsPerSecond: CONFIG.videoBps, audioBitsPerSecond: CONFIG.audioBps };
+  if (mime) opts.mimeType = mime;
+  try { recorder = new MediaRecorder(stream, opts); }
+  catch { recorder = new MediaRecorder(stream); }
+  recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+  recorder.onstop = finishRec;
+  recorder.start(1000);
+  t0 = performance.now(); recording = true; cues.push({ line: idx, t: 0 });
+  setRecUI(); renderLine();
+  tick = setInterval(() => { $('#timer').textContent = fmtTime((performance.now() - t0) / 1000); }, 250);
+  if (S.mode === 'roll') startRoll();
+}
+function stopRec() {
+  if (!recording) return;
+  recording = false; clearInterval(tick); stopRoll();
+  const dur = (performance.now() - t0) / 1000; recorder._dur = dur;
+  try { recorder.requestData(); } catch {}
+  recorder.stop(); setRecUI();
+}
+async function finishRec() {
+  const raw = recorder.mimeType || (chunks[0] && chunks[0].type) || 'video/webm';
+  const mime = raw.split(';')[0];
+  const blob = new Blob(chunks, { type: mime });
+  const all = await DB.all();
+  const n = all.filter((t) => t.project === S.title).length + 1;
+  const created = Date.now();
+  const take = {
+    id: 't' + created, created, project: S.title, mime, ext: extFor(mime), size: blob.size, dur: +recorder._dur.toFixed(2),
+    name: `${slug(S.title)}_${stamp(new Date(created))}_take${n}`, blob,
+    lines: lines(), startLine, cues: cues.slice(), mode: S.mode, saved: false, link: ''
+  };
+  await DB.put(take);
+  $('#timer').textContent = '00:00';
+  openReview(take);
+}
+
+/* ---------- review ---------- */
+let current = null, playerUrl = '';
+function openReview(take) {
+  current = take; show('review');
+  if (playerUrl) URL.revokeObjectURL(playerUrl);
+  playerUrl = URL.createObjectURL(take.blob); $('#player').src = playerUrl;
+  $('#r-name').textContent = take.name + '.' + take.ext;
+  $('#r-dur').textContent = fmtTime(take.dur); $('#r-size').textContent = fmtSize(take.size);
+  renderReviewState();
+}
+function renderReviewState(msg, kind, progress) {
+  const t = current; const chip = $('#r-chip');
+  chip.textContent = t.saved ? 'In Drive gespeichert' : 'Auf diesem Gerät'; chip.className = 'chip ' + (t.saved ? 'ok' : 'warn');
+  const st = $('#r-status');
+  if (!msg && t.saved) { msg = 'Gespeichert im Ordner »Reel Machine Aufnahmen«.'; kind = 'ok'; }
+  st.hidden = !msg; st.className = 'status' + (kind ? ' ' + kind : '');
+  if (msg) {
+    $('#r-msg').textContent = msg;
+    if (kind === 'ok' && t.link) { const a = document.createElement('a'); a.href = t.link; a.target = '_blank'; a.rel = 'noopener'; a.textContent = ' In Drive öffnen'; $('#r-msg').append(a); }
+  }
+  $('#r-bar').hidden = progress == null; if (progress != null) $('#r-bar i').style.width = Math.round(progress * 100) + '%';
+  const up = $('#r-upload'); up.disabled = !!t.saved || uploading; up.hidden = !!t.saved;
+}
+$('#r-upload').addEventListener('click', () => uploadTake(current, renderReviewState));
+$('#r-share').addEventListener('click', () => shareTake(current));
+$('#r-again').addEventListener('click', async () => { show('studio'); idx = 0; buildRoll(); renderLine(); setRecUI(); await startCamera(); });
+$('#r-done').addEventListener('click', () => { stopCamera(); show('setup'); renderSetup(); });
+
+async function shareTake(t) {
+  const file = new File([t.blob], t.name + '.' + t.ext, { type: t.mime });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: t.name }); return; }
+    catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(file); a.download = file.name; document.body.append(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+}
+
+/* ---------- Drive upload via the Apps Script relay ---------- */
+class UploadError extends Error { constructor(code, detail) { super(code); this.code = code; this.detail = detail || ''; } }
+async function api(payload) {
+  let r;
+  try {
+    r = await fetch(S.endpoint, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ key: S.key }, payload)), redirect: 'follow' });
+  } catch { throw new UploadError('network'); }
+  let j; try { j = await r.json(); } catch { throw new UploadError('bad_response', 'HTTP ' + r.status); }
+  if (!j.ok) throw new UploadError(j.error === 'key' ? 'key' : 'drive', j.error);
+  return j;
+}
+const uploadText = {
+  setup: 'Der Drive-Upload ist noch nicht eingerichtet. Trag Upload-Adresse und Schlüssel unter »Drive-Upload« ein. Die Aufnahme bleibt bis dahin auf diesem Gerät.',
+  key: 'Der Upload-Schlüssel stimmt nicht. Öffne den Einladungslink noch einmal. Die Aufnahme bleibt auf diesem Gerät.',
+  network: 'Keine Verbindung. Die Aufnahme bleibt auf diesem Gerät, versuch es gleich noch einmal.',
+  bad_response: 'Die Upload-Adresse antwortet nicht wie erwartet. Prüfe sie unter »Drive-Upload«.',
+  drive: 'Drive hat die Datei nicht angenommen.'
+};
+let uploading = false;
+async function uploadTake(t, ui) {
+  if (uploading || t.saved) return;
+  if (!S.endpoint || !S.key) { ui(uploadText.setup, 'err'); return; }
+  uploading = true;
+  try {
+    ui('Verbinde mit Google Drive …', null, 0);
+    const total = t.blob.size;
+    const desc = `${CONFIG.app} · ${t.project || 'ohne Projekt'} · ${new Date(t.created).toLocaleString('de-DE')} · ${t.lines.length} Sätze`;
+    const s = await api({ action: 'start', name: t.name + '.' + t.ext, mimeType: t.mime, size: total, description: desc });
+    let off = 0, res = null, fails = 0;
+    while (off < total) {
+      const end = Math.min(off + CONFIG.chunk, total);
+      const parts = Math.ceil(total / CONFIG.chunk);
+      ui(`Lade hoch … Teil ${Math.floor(off / CONFIG.chunk) + 1} von ${parts}`, null, off / total);
+      try {
+        const data = await blobB64(t.blob.slice(off, end));
+        res = await api({ action: 'chunk', session: s.session, start: off, total, data });
+        fails = 0;
+        if (res.done) break;
+        off = typeof res.next === 'number' ? res.next : end;
+      } catch (e) {
+        if (e.code === 'key' || ++fails > 3) throw e;
+        await sleep(1500 * fails);
+        try { const st = await api({ action: 'status', session: s.session, total }); if (st.done) { res = st; break; } off = st.next; } catch {}
+      }
+    }
+    if (!res || !res.done) throw new UploadError('drive', 'unvollständig');
+    ui('Speichere Satz-Zeiten …', null, 1);
+    const side = {
+      app: CONFIG.app, version: CONFIG.version, project: t.project, video: t.name + '.' + t.ext, driveId: res.id,
+      recordedAt: new Date(t.created).toISOString(), durationSec: t.dur, mimeType: t.mime, mode: t.mode,
+      startLine: t.startLine, lines: t.lines, cues: t.cues, userAgent: navigator.userAgent
+    };
+    try { await api({ action: 'meta', name: t.name + '.json', text: JSON.stringify(side, null, 1) }); } catch (e) { console.warn('sidecar failed', e); }
+    t.saved = true; t.driveId = res.id; t.link = res.url || ''; await DB.put(t);
+    uploading = false; ui(); refreshTakeCount();
+  } catch (e) {
+    uploading = false;
+    ui((uploadText[e.code] || uploadText.drive) + (e.code === 'drive' && e.detail ? ' (' + e.detail + ')' : ''), 'err');
+  }
+}
+
+/* ---------- takes sheet ---------- */
+async function renderTakes() {
+  const list = $('#takes-list'); list.textContent = '';
+  const all = await DB.all();
+  if (!all.length) { const p = document.createElement('p'); p.className = 'empty'; p.textContent = 'Noch keine Aufnahmen auf diesem Gerät.'; list.append(p); return; }
+  for (const t of all) {
+    const el = document.createElement('div'); el.className = 'take';
+    el.innerHTML = '<div class="t1"><div style="min-width:0"><div class="nm"></div><div class="sub"></div></div><span class="chip"></span></div><div class="row"></div><p class="hint msg" hidden></p>';
+    el.querySelector('.nm').textContent = t.name + '.' + t.ext;
+    el.querySelector('.sub').textContent = `${new Date(t.created).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' })} · ${fmtTime(t.dur)} · ${fmtSize(t.size)}`;
+    const chip = el.querySelector('.chip'); chip.textContent = t.saved ? 'In Drive' : 'Nur hier'; chip.classList.add(t.saved ? 'ok' : 'warn');
+    const row = el.querySelector('.row'); const msg = el.querySelector('.msg');
+    const mk = (label, fn, cls) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (cls ? ' ' + cls : ''); b.textContent = label; b.addEventListener('click', fn); row.append(b); return b; };
+    mk('Ansehen', () => { $('#takes').hidden = true; openReview(t); });
+    if (!t.saved) mk('In Drive speichern', () => uploadTake(t, (m, kind, p) => { msg.hidden = !m && !t.saved; msg.textContent = m ? m + (p != null ? ' ' + Math.round(p * 100) + ' %' : '') : 'Gespeichert.'; if (!m && t.saved) { chip.textContent = 'In Drive'; chip.className = 'chip ok'; } }), 'primary');
+    mk('Teilen', () => shareTake(t));
+    const del = mk('Löschen', () => {
+      if (del.dataset.armed) { DB.del(t.id).then(() => { el.remove(); refreshTakeCount(); }); return; }
+      del.dataset.armed = '1'; del.textContent = t.saved ? 'Wirklich löschen?' : 'Nicht gespeichert. Trotzdem löschen?'; del.classList.add('danger');
+    });
+    list.append(el);
+  }
+}
+
+/* ---------- boot ---------- */
+readHash();
+renderSetup();
+try { navigator.storage?.persist?.(); } catch {}
+document.addEventListener('visibilitychange', async () => { if (!document.hidden && !$('#studio').hidden && !wakeLock) { try { wakeLock = await navigator.wakeLock?.request('screen'); } catch {} } });
+window.addEventListener('beforeunload', (e) => { if (recording || uploading) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+</body>
+</html>
