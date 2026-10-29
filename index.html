@@ -108,8 +108,9 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
 .guide { position: absolute; inset: 0; pointer-events: none; }
 .recording .guide { display: none; }
 /* the camera picture fills the screen height (cover), so the head is sized in screen heights: 9:16 picture, head about half its width */
-.g-head { position: absolute; left: calc(50% - 13.5vh); width: 27vh; left: calc(50% - 13.5dvh); width: 27dvh; top: 16%; height: 42%; border: 2px dashed rgba(255,255,255,.8); border-radius: 50% / 46%; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
-.g-chin { position: absolute; left: 0; right: 0; top: 60%; border-top: 2px dashed var(--cue); }
+.g-head { position: absolute; left: calc(50% - 8vh); width: 16vh; left: calc(50% - 8dvh); width: 16dvh; top: 12.5%; height: 22%; border: 2px dashed rgba(255,255,255,.8); border-radius: 50% / 46%; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
+.g-chin { position: absolute; left: 0; right: 0; top: 37%; border-top: 2px dashed var(--cue); }
+.cu { color: var(--cue); font-size: .62em; font-weight: 600; white-space: nowrap; }
 .g-chin span { position: absolute; right: max(16px, var(--safe-r)); top: 6px; font: 600 13px/1 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; color: #17130A; background: var(--cue); padding: 5px 8px; border-radius: 6px; }
 .count { position: absolute; inset: 0; display: grid; place-items: center; font: 700 160px/1 var(--f-cond); color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.6); pointer-events: none; }
 .camerr { position: absolute; left: max(20px, var(--safe-l)); right: max(20px, var(--safe-r)); top: 50%; transform: translateY(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
@@ -193,9 +194,12 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
     <label class="toggle" for="mirror"><span>Text spiegeln<br><span class="hint">Nur für Teleprompter mit Glasscheibe</span></span><input id="mirror" type="checkbox"></label>
 
     <ul class="tips">
-      <li>Handy hochkant, Kamera auf Augenhöhe, Gesicht zum Fenster.</li>
-      <li>Kopf in den gestrichelten Rahmen, Kinn über der gelben Linie. So bleiben Untertitel und Texttafeln frei vom Gesicht.</li>
+      <li>Handy hochkant auf ein Stativ, Kamera auf Augenhöhe, Gesicht zum Fenster. Nichts Helles hinter dem Kopf.</li>
+      <li>Halbnah: Handy etwa 80 bis 100 cm entfernt, Kopf in den gestrichelten Rahmen, Kinn über der gelben Linie, Brust im Bild. So haben Zooms Reserve, und Untertitel und Karten haben Platz.</li>
+      <li>Hände unter der Brust. Erste und letzte Sekunde: gleiche Haltung, Mund zu.</li>
+      <li>Gelbe Hinweise in eckigen Klammern sind Regie für dich, etwa [Pause 1 s] oder [Blick halten]. Einfach umsetzen und weiterlesen.</li>
       <li>Nach jedem Satz kurz absetzen. Verpatzt? Satz einfach noch einmal sagen, die letzte Fassung zählt.</li>
+      <li>Zum Schluss 3 Sekunden aus dem Bild gehen und still sein. Leerer Raum und Raumklang helfen beim Schnitt.</li>
       <li>Bluetooth-Fernauslöser und Pfeiltasten schalten zum nächsten Satz.</li>
     </ul>
 
@@ -381,7 +385,7 @@ function renderMode() {
   document.documentElement.style.setProperty('--fs', S.fs + 'px');
 }
 function renderStats() {
-  const L = lines(); const words = L.join(' ').split(/\s+/).filter(Boolean).length;
+  const L = lines(); const words = L.join(' ').replace(/\[[^\]]*\]/g, ' ').split(/\s+/).filter(Boolean).length;
   $('#stats').textContent = L.length ? `${L.length} ${L.length === 1 ? 'Satz' : 'Sätze'} · ca. ${Math.round(words / CONFIG.wordsPerSec + L.length * 0.5)} s` : '0 Sätze';
   $('#go').disabled = !L.length;
 }
@@ -521,10 +525,19 @@ $('#flip').addEventListener('click', async () => {
   S.facing = S.facing === 'user' ? 'environment' : 'user'; stopCamera(); await startCamera();
 });
 
+/* Regieanweisungen in eckigen Klammern: gelb und klein, werden nicht vorgelesen */
+function setCued(el, t) {
+  el.textContent = '';
+  for (const part of String(t || '').split(/(\[[^\]]*\])/)) {
+    if (!part) continue;
+    if (part[0] === '[') { const s = document.createElement('span'); s.className = 'cu'; s.textContent = part; el.append(s); }
+    else el.append(part);
+  }
+}
 function renderLine() {
   const L = lines(); idx = Math.max(0, Math.min(L.length - 1, idx));
-  $('#cur').textContent = L[idx] || '';
-  $('#next').textContent = L[idx + 1] || '';
+  setCued($('#cur'), L[idx]);
+  setCued($('#next'), L[idx + 1]);
   $('#pos').textContent = `${idx + 1} / ${L.length}`;
   $('#endhint').hidden = !(recording && idx === L.length - 1);
   $('#prev').disabled = idx === 0; $('#nextbtn').disabled = idx >= L.length - 1;
@@ -548,7 +561,7 @@ document.addEventListener('keydown', (e) => {
 /* Laufschrift */
 function buildRoll() {
   const r = $('#roll'); r.textContent = '';
-  for (const t of lines()) { const p = document.createElement('p'); p.textContent = t; r.append(p); }
+  for (const t of lines()) { const p = document.createElement('p'); setCued(p, t); r.append(p); }
   rollY = 0; if (S.mode === 'roll') applyRoll();
 }
 function applyRoll() {
