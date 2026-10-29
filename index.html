@@ -105,6 +105,12 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
 .rec { width: 78px; height: 78px; border-radius: 50%; border: 4px solid #fff; background: transparent; display: grid; place-items: center; padding: 0; }
 .rec i { display: block; width: 58px; height: 58px; border-radius: 50%; background: var(--tally); transition: all .18s ease; }
 .recording .rec i { width: 30px; height: 30px; border-radius: 7px; }
+.guide { position: absolute; inset: 0; pointer-events: none; }
+.recording .guide { display: none; }
+/* the camera picture fills the screen height (cover), so the head is sized in screen heights: 9:16 picture, head about half its width */
+.g-head { position: absolute; left: calc(50% - 13.5vh); width: 27vh; left: calc(50% - 13.5dvh); width: 27dvh; top: 16%; height: 42%; border: 2px dashed rgba(255,255,255,.8); border-radius: 50% / 46%; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
+.g-chin { position: absolute; left: 0; right: 0; top: 60%; border-top: 2px dashed var(--cue); }
+.g-chin span { position: absolute; right: max(16px, var(--safe-r)); top: 6px; font: 600 13px/1 var(--f-cond); letter-spacing: .08em; text-transform: uppercase; color: #17130A; background: var(--cue); padding: 5px 8px; border-radius: 6px; }
 .count { position: absolute; inset: 0; display: grid; place-items: center; font: 700 160px/1 var(--f-cond); color: #fff; text-shadow: 0 4px 30px rgba(0,0,0,.6); pointer-events: none; }
 .camerr { position: absolute; left: max(20px, var(--safe-l)); right: max(20px, var(--safe-r)); top: 50%; transform: translateY(-50%); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .camerr p { margin: 0; }
@@ -188,6 +194,7 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
 
     <ul class="tips">
       <li>Handy hochkant, Kamera auf Augenhöhe, Gesicht zum Fenster.</li>
+      <li>Kopf in den gestrichelten Rahmen, Kinn über der gelben Linie. So bleiben Untertitel und Texttafeln frei vom Gesicht.</li>
       <li>Nach jedem Satz kurz absetzen. Verpatzt? Satz einfach noch einmal sagen, die letzte Fassung zählt.</li>
       <li>Bluetooth-Fernauslöser und Pfeiltasten schalten zum nächsten Satz.</li>
     </ul>
@@ -217,6 +224,7 @@ input[type=range] { width: 100%; accent-color: var(--cue); height: 28px; }
       <span class="paused" id="paused" hidden>Pause, tippen zum Weiterlaufen</span>
     </div>
   </div>
+  <div class="guide" id="guide" aria-hidden="true"><div class="g-head"></div><div class="g-chin"><span>Kinn über dieser Linie</span></div></div>
   <div class="count" id="count" hidden></div>
   <div class="camerr" id="camerr" hidden>
     <p id="camerr-t"></p>
@@ -457,6 +465,7 @@ function meterStep() {
   const land = innerWidth > innerHeight;
   const msg = land ? 'Bitte Handy hochkant halten. Das Reel ist 9:16.' : dead ? 'Kein Ton vom Mikrofon. Sag einen Satz zur Probe. Bleibt der Balken rot, nutzt vermutlich eine andere App das Mikrofon.' : '';
   const w = $('#warn'); if (w.textContent !== msg) w.textContent = msg; w.hidden = !msg;
+  $('#guide').hidden = land;
   meterRaf = requestAnimationFrame(meterStep);
 }
 
