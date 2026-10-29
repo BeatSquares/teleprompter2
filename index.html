@@ -477,7 +477,7 @@ async function startCamera() {
   if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) { camError('insecure'); return false; }
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: S.facing, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30 } },
+      video: { facingMode: S.facing, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } },
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
     });
     const v = $('#preview'); v.srcObject = stream; v.classList.toggle('mirror', S.facing === 'user');
@@ -592,12 +592,29 @@ $('#rec').addEventListener('click', async () => {
   $('#count').hidden = true; busy = false;
   startRec(mime);
 });
+/* Reels are 9:16. When the camera delivers a landscape picture (seen on iPhones), the take is recorded
+   from a portrait canvas that shows exactly the crop of the preview. A portrait camera picture is recorded as is. */
+let canvasRec = null;
+function recSource() {
+  const v = $('#preview'); const vw = v.videoWidth, vh = v.videoHeight;
+  canvasRec = null;
+  if (!vw || !vh || vh >= vw || !HTMLCanvasElement.prototype.captureStream) return { src: stream, via: 'camera', w: vw, h: vh, cam: vw + 'x' + vh };
+  const H = Math.min(1920, vh - (vh % 2)), W = Math.round(H * 9 / 16 / 2) * 2;
+  const cw = Math.round(vh * 9 / 16), sx = Math.round((vw - cw) / 2);
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  let raf = 0; const draw = () => { g.drawImage(v, sx, 0, cw, vh, 0, 0, W, H); raf = requestAnimationFrame(draw); }; draw();
+  const cs = c.captureStream(30);
+  canvasRec = { stop() { cancelAnimationFrame(raf); for (const t of cs.getTracks()) t.stop(); } };
+  return { src: new MediaStream([...cs.getVideoTracks(), ...stream.getAudioTracks()]), via: 'canvas', w: W, h: H, cam: vw + 'x' + vh };
+}
+let recFormat = null;
 function startRec(mime) {
   chunks = []; cues = []; startLine = idx; recPeak = -120;
   const opts = { videoBitsPerSecond: CONFIG.videoBps, audioBitsPerSecond: CONFIG.audioBps };
   if (mime) opts.mimeType = mime;
-  try { recorder = new MediaRecorder(stream, opts); }
-  catch { recorder = new MediaRecorder(stream); }
+  const rs = recSource(); recFormat = { via: rs.via, w: rs.w, h: rs.h, cam: rs.cam };
+  try { recorder = new MediaRecorder(rs.src, opts); }
+  catch { recorder = new MediaRecorder(rs.src); }
   recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
   recorder.onstop = finishRec;
   recorder.start(1000);
@@ -612,8 +629,10 @@ function stopRec() {
   const dur = (performance.now() - t0) / 1000; recorder._dur = dur;
   try { recorder.requestData(); } catch {}
   recorder.stop(); setRecUI();
+  recorder._canvas = canvasRec; canvasRec = null;
 }
 async function finishRec() {
+  if (recorder._canvas) { recorder._canvas.stop(); recorder._canvas = null; }
   const raw = recorder.mimeType || (chunks[0] && chunks[0].type) || 'video/webm';
   const mime = raw.split(';')[0];
   const blob = new Blob(chunks, { type: mime });
@@ -623,7 +642,7 @@ async function finishRec() {
   const take = {
     id: 't' + created, created, project: S.title, mime, ext: extFor(mime), size: blob.size, dur: +recorder._dur.toFixed(2),
     name: `${slug(S.title)}_${stamp(new Date(created))}_take${n}`, blob,
-    lines: lines(), startLine, cues: cues.slice(), mode: S.mode, saved: false, link: '',
+    lines: lines(), startLine, cues: cues.slice(), mode: S.mode, saved: false, link: '', format: recFormat,
     peakDb: analyser ? +recPeak.toFixed(1) : null
   };
   await DB.put(take);
@@ -638,7 +657,7 @@ function openReview(take) {
   if (playerUrl) URL.revokeObjectURL(playerUrl);
   playerUrl = URL.createObjectURL(take.blob); $('#player').src = playerUrl;
   $('#r-name').textContent = take.name + '.' + take.ext;
-  $('#r-dur').textContent = fmtTime(take.dur); $('#r-size').textContent = fmtSize(take.size);
+  $('#r-dur').textContent = fmtTime(take.dur); $('#r-size').textContent = fmtSize(take.size) + (take.format && take.format.w ? ` · ${take.format.w}×${take.format.h}` : '');
   renderReviewState();
 }
 function renderReviewState(msg, kind, progress) {
@@ -726,7 +745,7 @@ async function uploadTake(t, ui) {
     const side = {
       app: CONFIG.app, version: CONFIG.version, project: t.project, video: t.name + '.' + t.ext, driveId: res.id,
       recordedAt: new Date(t.created).toISOString(), durationSec: t.dur, mimeType: t.mime, mode: t.mode,
-      startLine: t.startLine, lines: t.lines, cues: t.cues, userAgent: navigator.userAgent
+      startLine: t.startLine, lines: t.lines, cues: t.cues, format: t.format || null, userAgent: navigator.userAgent
     };
     try { await api({ action: 'meta', name: t.name + '.json', text: JSON.stringify(side, null, 1) }); } catch (e) { console.warn('sidecar failed', e); }
     t.saved = true; t.driveId = res.id; t.link = res.url || ''; await DB.put(t);
